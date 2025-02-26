@@ -258,29 +258,33 @@ def review_router(state: ChatState) -> str:
     return "finalize" if latest_decision == "finalize" else "retry"
 
 def finalize(state: ChatState) -> ChatState:
-    final_prompt = "Create a comprehensive answer to the user's question using the vetted results."
-    llm_input = f"""Create a comprehensive answer to the user's question using these vetted results.
+    final_prompt = "Create a comprehensive answer to the user's question using the vetted results. Make sure to respond in valid markdown. "
+    llm_input = f"""
 
 User Question: {state['user_input']}
 
 Vetted Results:
 {chr(10).join([f"- {r['content']}" for r in state["vetted_results"]])}
 
-Synthesize these results into a clear, complete answer. If there were no vetted results, say you couldn't find any relevant information."""
+Synthesize these results into a clear, complete answer. If there were no vetted results, say you couldn't find any relevant information. Make sure to respond in valid markdown. Respond with the answer and then cite the sources. """
+    
+
     messages = [
         {"role": "system", "content": final_prompt},
         {"role": "user", "content": llm_input}
     ]
     final_response = ""
     for chunk in llm.stream(messages):
+        chunk_content = chunk.content
+        print(f"Raw chunk: '{chunk_content}' (len={len(chunk_content)})")  # Debug logging
         final_response += chunk.content
-        if chunk.content.strip():
+        if chunk.content:
             service_bus_handler.publish_event_sync(
                 state["task_id"], 
                 "chunk_stream", 
                 {"message": chunk.content}
             )
-            time.sleep(0.1)
+            #time.sleep(0.1)
     state["final_answer"] = final_response
     state["thought_process"].append({
         "type": "response",
@@ -330,8 +334,8 @@ async def lifespan(app: FastAPI):
     await service_bus_handler.close()
 
 app = FastAPI(
-    title="Agent Run API",
-    description="API for running asynchronous agent tasks with RAG logic",
+    title="Data Intelligence Agent",
+    description="Data Intelligence Agent is a multi-step agent that uses agentic RAG to answer a given question.",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -378,7 +382,7 @@ async def process_task(task_id: str, user_message: str):
         await service_bus_handler._message_queue.join()
 
 
-@app.get("/")
+@app.get("/health")
 async def root():
     return {"status": "healthy"}
 

@@ -142,8 +142,12 @@ class ServiceBusHandler:
                     if event_type == "chunk_stream":
                         # Always add chunk to buffer
                         chunk_text = message_data["payload"].get("message", "")
+                        print(f"[BUFFER DEBUG] Task {task_id} | Raw chunk: '{chunk_text}' (len={len(chunk_text)})")
                         if task_id in self._chunk_buffers:
+                            current_buffer = self._chunk_buffers[task_id]
+                            print(f"[BUFFER DEBUG] Task {task_id} | Current buffer before: '{current_buffer}' (len={len(current_buffer)})")
                             self._chunk_buffers[task_id] += chunk_text
+                            print(f"[BUFFER DEBUG] Task {task_id} | Buffer after: '{self._chunk_buffers[task_id]}' (len={len(self._chunk_buffers[task_id])})")
                         else:
                             self._chunk_buffers[task_id] = chunk_text
                         
